@@ -29,20 +29,18 @@ object ImapSimpleScenario extends Simulation {
     .pause(1 second)
     .exec(imap("Connect").connect()).exitHereIfFailed
     .exec(imap("login").login("${username}", "${password}").check(ok))
-    .during(1 minute) {
-        exec(imap("list").list("", "*").check(ok, hasFolder("INBOX")))
-        .pause(200 milli)
-        .exec(imap("select").select("INBOX").check(ok))
-        .pause(200 milli)
-        .exec(receiveEmail)
-        .pause(200 milli)
-        .exec(imap("fetch").fetch(MessageRanges(Last()), AttributeList("BODY[HEADER]", "UID", "BODY[TEXT]")).check(ok))
-        .pause(200 milli)
-        .exec(imap("store").store(MessageRanges(Last()), StoreFlags.add(Silent.Disable(), "\\Deleted")).check(ok))
-        .pause(200 milli)
-        .exec(imap("expunge").expunge().check(ok))
-        .pause(200 milli)
-        .exec(imap("fetch").fetch(MessageRanges(Last()), AttributeList("BODY[HEADER]", "UID", "BODY[TEXT]")).check(no))
-    }
+    .exec(imap("list").list("", "*").check(ok, hasFolder("INBOX")))
 
+    .pause(200 milli)
+    .exec(receiveEmail)
+    .pause(200 milli)
+    .exec(imap("select").select("INBOX").check(ok))
+    .pause(200 milli)
+    .exec(imap("fetch").fetch(MessageRanges(Last()), AttributeList("BODY[HEADER]", "UID", "BODY[TEXT]")).check(ok))
+    .pause(200 milli)
+    .exec(imap("store").store(MessageRanges(Last()), StoreFlags.add(Silent.Disable(), "\\Deleted")).check(ok))
+    .pause(200 milli)
+    .exec(imap("expunge").expunge().check(ok))
+    .pause(200 milli)
+    .exec(imap("fetch").fetch(MessageRanges(Last()), AttributeList("BODY[HEADER]", "UID", "BODY[TEXT]")).check(no))
 }

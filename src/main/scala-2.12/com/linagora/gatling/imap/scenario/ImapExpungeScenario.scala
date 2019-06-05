@@ -49,8 +49,8 @@ object ImapExpungeScenario extends Simulation with LazyLogging {
     .pause(1 second)
     .exec(imap("Connect").connect()).exitHereIfFailed
     .exec(imap("login").login("${username}", "${password}").check(ok))
-    .exec(imap("select").select("INBOX").check(ok))
     .exec(populateInbox)
+    .exec(imap("select").select("INBOX").check(ok))
     .exec(imap("expunge").expunge().check(ok))
 
 }

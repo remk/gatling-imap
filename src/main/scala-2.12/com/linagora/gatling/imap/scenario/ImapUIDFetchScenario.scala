@@ -35,8 +35,8 @@ object ImapUIDFetchScenario {
       .feed(feeder)
       .exec(imap("Connect").connect()).exitHereIfFailed
       .exec(imap("login").login("${username}", "${password}").check(ok))
-      .exec(imap("select").select("INBOX").check(ok))
       .exec(populateInbox)
+      .exec(imap("select").select("INBOX").check(ok))
       .pause(1 second)
       .exec(repeat(100)(uidFetch))
 
