@@ -24,7 +24,7 @@ object CyrusServer extends Server {
           .flatMap(implicit session =>
             for {
               _ <- Imap.login("cyrus", "cyrus")
-              _ <- Imap.rawCommand(s"CREATE user.${user.login}")
+              _ <- Imap.createMailbox(s"user.${user.login}")
               _ <- Imap.disconnect()
             } yield ()), 1.minute)
 

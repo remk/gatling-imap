@@ -26,9 +26,10 @@ object ImapAuthenticationScenario {
         |
         |Test content
         |abcdefghijklmnopqrstuvwxyz
-        |0123456789""".stripMargin).check(ok))
+        |0123456789""".stripMargin.replaceAllLiterally("\n", "\r\n")).check(ok))
     .exec(imap("select").select("INBOX").check(ok, hasRecent(1)))
     .exec(imap("fetch").fetch(MessageRanges(Last()), AttributeList("BODY", "UID")).check(ok, hasUid(Uid(1)), contains("TEXT")))
-    .exec(imap("fetch").fetch(MessageRanges(Last()), AttributeList("BODY[TEXT]", "UID")).check(ok, hasUid(Uid(1)), contains("abcdefghijklmnopqrstuvwxyz")))
+//    .exec(imap("fetch").fetch(MessageRanges(Last()), AttributeList("BODY[TEXT]", "UID")).check(ok, hasUid(Uid(1)), contains("abcdefghijklmnopqrstuvwxyz")))
+    .exec(imap("fetch").fetch(MessageRanges(Last()), AttributeList( "BODY[HEADER]", "UID", "BODY[TEXT]")).check(ok,contains("Test content")))
 
 }

@@ -5,8 +5,7 @@ import java.util
 import java.util.Properties
 
 import akka.actor.{ActorRef, Props, Stash}
-import com.lafaspot.imapnio.client.{IMAPClient, IMAPSession => ClientSession}
-import com.lafaspot.imapnio.listener.IMAPConnectionListener
+import com.lafaspot.imapnio.async.client.{ImapAsyncClient, ImapAsyncSession}
 import com.lafaspot.logfast.logging.internal.LogPage
 import com.lafaspot.logfast.logging.{LogManager, Logger}
 import com.linagora.gatling.imap.protocol.command._
@@ -23,7 +22,7 @@ object ImapSessions {
 }
 
 class ImapSessions(protocol: ImapProtocol) extends BaseActor {
-  val imapClient = new IMAPClient(4)
+  val imapClient = new ImapAsyncClient(4)
 
   override def receive: Receive = {
     case cmd: Command =>
@@ -46,37 +45,48 @@ class ImapSessions(protocol: ImapProtocol) extends BaseActor {
 }
 
 private object ImapSession {
-  def props(client: IMAPClient, protocol: ImapProtocol): Props =
+  def props(client: ImapAsyncClient, protocol: ImapProtocol): Props =
     Props(new ImapSession(client, protocol))
 
 }
 
-private class ImapSession(client: IMAPClient, protocol: ImapProtocol) extends BaseActor with Stash with NameGen {
-  val connectionListener = new IMAPConnectionListener {
-    override def onConnect(session: ClientSession): Unit = {
-      logger.trace("Callback onConnect called")
-      self ! Response.Connected(ImapResponses.empty)
-    }
-
-    override def onMessage(session: ClientSession, response: IMAPResponse): Unit =
-      logger.trace("Callback onMessage called")
-
-
-    override def onDisconnect(session: ClientSession, cause: Throwable): Unit = {
-      logger.trace("Callback onDisconnect called")
-      self ! Response.Disconnected(cause)
-    }
-
-    override def onInactivityTimeout(session: ClientSession): Unit =
-      logger.trace("Callback onInactivityTimeout called")
-
-    override def onResponse(session: ClientSession, tag: String, responses: util.List[IMAPResponse]): Unit =
-      logger.trace("Callback onResponse called")
-  }
+private class ImapSession(client: ImapAsyncClient, protocol: ImapProtocol) extends BaseActor with Stash with NameGen {
+  //  val connectionListener = new ImapSession {
+  //    override def onConnect(session: ClientSession): Unit = {
+  //      logger.trace("Callback onConnect called")
+  //      self ! Response.Connected(ImapResponses.empty)
+  //    }
+  //
+  //    override def onMessage(session: ImapAsyncSession, response: IMAPResponse): Unit =
+  //      logger.trace("Callback onMessage called")
+  //
+  //
+  //    override def onDisconnect(session: ImapAsyncSession, cause: Throwable): Unit = {
+  //      logger.trace("Callback onDisconnect called")
+  //      self ! Response.Disconnected(cause)
+  //    }
+  //
+  //    override def onInactivityTimeout(session: ImapAsyncSession): Unit =
+  //      logger.trace("Callback onInactivityTimeout called")
+  //
+  //    override def onResponse(session: ImapAsyncSession, tag: String, responses: util.List[IMAPResponse]): Unit =
+  //      logger.trace("Callback onResponse called")
+  //  }
   val uri = new URI(s"imap://${protocol.host}:${protocol.port}")
   val config: Properties = protocol.config
   logger.debug(s"connecting to $uri with $config")
-  val session: ClientSession = client.createSession(uri, config, connectionListener, new LogManager(Logger.Level.ERROR, LogPage.DEFAULT_SIZE))
+
+  import java.net.InetSocketAddress
+
+  val localAddress: InetSocketAddress = null
+
+  import java.util
+
+  val sniNames: util.List[String] = null
+  val logManager = new LogManager(Logger.Level.ERROR, LogPage.DEFAULT_SIZE)
+  logManager.setLegacy(true)
+  val session: ImapAsyncSession = client.createSession(uri, config, localAddress, sniNames).get()
+  self ! Response.Connected(ImapResponses.empty)
   private var currentTag: Tag = Tag.initial
 
   override def receive: Receive = disconnected
@@ -84,7 +94,7 @@ private class ImapSession(client: IMAPClient, protocol: ImapProtocol) extends Ba
   def disconnected: Receive = {
     case Command.Connect(userId) =>
       logger.debug(s"got connect request, $userId connecting to $uri")
-      session.connect()
+     // session.connect()
       context.become(connecting(sender()))
     case Response.Disconnected(_) => ()
     case Command.Disconnect(_) => ()
@@ -137,7 +147,7 @@ private class ImapSession(client: IMAPClient, protocol: ImapProtocol) extends Ba
     case msg@Response.Disconnected(cause) =>
       context.become(disconnected)
     case msg@Command.Disconnect(userId) =>
-      session.disconnect()
+      session.close()
       context.become(disconnecting(sender()))
 
   }

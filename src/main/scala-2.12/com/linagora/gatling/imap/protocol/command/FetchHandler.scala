@@ -1,7 +1,8 @@
 package com.linagora.gatling.imap.protocol.command
 
 import akka.actor.{ActorRef, Props}
-import com.lafaspot.imapnio.client.IMAPSession
+import com.lafaspot.imapnio.async.client.ImapAsyncSession
+import com.lafaspot.imapnio.async.request.FetchCommand
 import com.linagora.gatling.imap.protocol._
 import io.gatling.core.akka.BaseActor
 
@@ -25,22 +26,22 @@ object FetchAttributes {
   }
 
   case class AttributeList(fetchAttributes: String*) extends FetchAttributes {
-    override def asString = fetchAttributes.mkString("(", " ", ")")
+    override def asString = fetchAttributes.mkString( " ")
   }
 
 }
 
 object FetchHandler {
-  def props(session: IMAPSession, tag: Tag) = Props(new FetchHandler(session, tag))
+  def props(session: ImapAsyncSession, tag: Tag) = Props(new FetchHandler(session, tag))
 }
 
-class FetchHandler(session: IMAPSession, tag: Tag) extends BaseActor {
+class FetchHandler(session: ImapAsyncSession, tag: Tag) extends BaseActor {
 
   override def receive: Receive = {
     case Command.Fetch(userId, sequence, attributes) =>
       val listener = new RespondToActorIMAPCommandListener(self, userId, Response.Fetched)(logger)
       context.become(waitCallback(sender()))
-      session.executeTaggedRawTextCommand(tag.string, s"FETCH ${sequence.asString} ${attributes.asString}", listener)
+      listener.onResponse(session.execute(new FetchCommand(false,  sequence.asString, attributes.asString)).get().getResponseLines);
   }
 
   def waitCallback(sender: ActorRef): Receive = {

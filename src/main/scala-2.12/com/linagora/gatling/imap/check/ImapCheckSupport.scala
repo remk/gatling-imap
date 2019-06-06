@@ -34,7 +34,7 @@ trait ImapCheckSupport {
       resp => s"""Unable to find UID '$expected' in ${resp.uidList.mkString(", ")}""")
 
   def contains(expected: String) =
-    ImapSimpleCheck(
-      _.contains(expected),
+    ImapSimpleCheck(s =>
+      s.contains(expected),
       resp => s"""Unable to find '$expected' in ${resp.mkString(", ")}""")
 }

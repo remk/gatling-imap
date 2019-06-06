@@ -1,28 +1,25 @@
 package com.linagora.gatling.imap.protocol.command
 
 import akka.actor.{ActorRef, Props}
-import com.lafaspot.imapnio.client.IMAPSession
+import com.lafaspot.imapnio.async.client.ImapAsyncSession
+import com.lafaspot.imapnio.async.request.ListCommand
 import com.linagora.gatling.imap.protocol._
 import io.gatling.core.akka.BaseActor
 
 import scala.util.{Failure, Success, Try}
 
 object ListHandler {
-  def props(session: IMAPSession, tag: Tag) = Props(new ListHandler(session, tag))
+  def props(session: ImapAsyncSession, tag: Tag) = Props(new ListHandler(session, tag))
 }
 
-class ListHandler(session: IMAPSession, tag: Tag) extends BaseActor {
+class ListHandler(session: ImapAsyncSession, tag: Tag) extends BaseActor {
 
   override def receive: Receive = {
     case Command.List(userId, reference, name) =>
       val listener = new RespondToActorIMAPCommandListener(self, userId, Response.Listed)(logger)
       context.become(waitCallback(sender()))
-      Try(session.executeListCommand(tag.string, reference, name, listener)) match {
-        case Success(value) =>
-        case Failure(e) =>
-          logger.error("ERROR when executing LIST COMMAND", e)
-          throw e;
-      }
+
+      listener.onResponse(session.execute(   new ListCommand(reference, name)).get().getResponseLines)
   }
 
   def waitCallback(sender: ActorRef): Receive = {

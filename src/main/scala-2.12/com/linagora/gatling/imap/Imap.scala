@@ -2,35 +2,30 @@ package com.linagora.gatling.imap
 
 import java.util
 
-import com.lafaspot.imapnio.channel.IMAPChannelFuture
-import com.lafaspot.imapnio.client.IMAPSession
-import com.lafaspot.imapnio.listener.IMAPCommandListener
+import com.lafaspot.imapnio.async.client.{ImapAsyncSession, ImapFuture}
+import com.lafaspot.imapnio.async.request.{CreateFolderCommand, LoginCommand}
 import com.sun.mail.imap.protocol.IMAPResponse
 
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
 object Imap {
+
   case class TaggedResponse(tag: String, responses: List[IMAPResponse])
 
-  def login(login: String, password: String)(implicit session: IMAPSession, executionContext: ExecutionContext): Future[TaggedResponse] =
-    executeCommand(session.executeLoginCommand("A1", login, password, _))
+  def login(login: String, password: String)(implicit session: ImapAsyncSession, executionContext: ExecutionContext): Future[Any] =
+    executeCommand(() => session.execute(new LoginCommand(login, password)))
 
-  def rawCommand(str: String)(implicit session: IMAPSession, executionContext: ExecutionContext): Future[TaggedResponse] =
-    executeCommand(session.executeTaggedRawTextCommand("A1", str, _))
+  def createMailbox(name: String)(implicit session: ImapAsyncSession, executionContext: ExecutionContext): Future[Any] =
 
-  def disconnect()(implicit session: IMAPSession, executionContext: ExecutionContext): Future[Unit] =
-    Future.successful(session.disconnect())
+    executeCommand(() => session.execute(new CreateFolderCommand(name)))
 
-  private def executeCommand(command: IMAPCommandListener => IMAPChannelFuture)(implicit executionContext: ExecutionContext) = {
-    val taggedResponse = Promise[TaggedResponse]()
-    command(new IMAPCommandListener {
-      override def onResponse(session: IMAPSession, tag: String, responses: util.List[IMAPResponse]): Unit = {
-        import collection.JavaConverters._
-        taggedResponse.success(TaggedResponse(tag, responses.asScala.toList))
-      }
+  def disconnect()(implicit session: ImapAsyncSession, executionContext: ExecutionContext): Future[Unit] =
+    Future.successful(session.close().get())
 
-      override def onMessage(session: IMAPSession, response: IMAPResponse): Unit = {}
-    })
+  private def executeCommand(command: () => ImapFuture[_])(implicit executionContext: ExecutionContext) = {
+    val taggedResponse = Promise[Any]()
+    command.apply().get()
+    taggedResponse.success()
     taggedResponse.future
   }
 }
